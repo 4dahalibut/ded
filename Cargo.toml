@@ -1,0 +1,9 @@
+[package]
+name = "ded"
+version = "0.1.0"
+authors = ["Josh Preuss ✌ <jopreuss@amazon.com>"]
+
+[dependencies]
+regex = "1"
+clap = "2.29.4"
+libc = "0.2"
