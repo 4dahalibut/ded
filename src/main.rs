@@ -2,24 +2,14 @@ extern crate regex;
 extern crate clap;
 extern crate libc;
 
-use std::process;
-use std::result;
 use std::fs::File;
 use clap::{Arg, App, ArgMatches};
-use std::io::{BufReader,BufRead, stdin, Read};
+use std::io::{BufReader,BufRead, stdin};
 use regex::Regex;
 
 fn main() {
     reset_sigpipe();
-    let matches = parse_args();
-    match run(matches) {
-        Ok(0) => process::exit(1),
-        Ok(_) => process::exit(0),
-        Err(err) => {
-            eprintln!("{}", err);
-            process::exit(1);
-        }
-    }
+    run(parse_args());
 }
 
 struct Subst{
@@ -37,70 +27,75 @@ struct Command {
 }
 
 impl Command {
-    fn execute(&self, s: String) -> result::Result<String, String>{
+    fn execute(&self, s: &mut String){
         match self.cmd {
             's' => {
                 if self.x.cmd_subst.regex.is_match(&s){
-                    Ok(self.x.cmd_subst.regex.replace_all(&s, &*self.x.cmd_subst.replacements[0]).to_string())
-                } else { Ok(s) }
-            },
-            _ => Err("Fuck you".to_string())
-        }
-    }
-}
-
-fn match_slash<'a>(command: &'a str, index: usize, slash: char) -> Option<&'a str>{
-    let mut chars = command[index..].char_indices();
-    loop {
-        match chars.next() {
-            Some((i, item)) if item == slash => {
-                match i {
-                    0 => return None,
-                    _ => return Some(&command[index..i + index])
+                    *s = self.x.cmd_subst.regex.replace_all(s, &*self.x.cmd_subst.replacements[0]).to_string();
                 }
             },
-            Some(_) => continue,
+            _ => panic!("Undefined cmd {} ", self.cmd),
+        };
+    }
+}
+
+fn split_at_slash(command: &str, slash: char) -> Vec<String>{
+    let mut chars = command.chars();
+    let mut string_builder = "".to_string();
+    let mut matched_strs : Vec<String> = Vec::new();
+    loop {
+        match chars.next() {
+            Some(c) if c == slash && !string_builder.ends_with(r"\")=> {
+                matched_strs.push(string_builder.clone());
+                string_builder = "".to_string();
+            },
+            Some(c) => string_builder.push(c),
             None => break
-        }
+        };
     };
-    None
+    matched_strs.push(string_builder.clone());
+    matched_strs
 }
 
-fn compile(command_str: String) -> result::Result<Command, String> {
-    let mut chars = command_str.char_indices();
-    let a : String = "hi".to_string();
-    match chars.next() {
-        Some((_, 's')) => {
-            let (i, slash) = chars.next().unwrap();
-            let raw_regex = match_slash(&command_str, i+1, slash).unwrap();
-            let re = Regex::new(raw_regex).unwrap();
-            let replacement = vec![match_slash(&command_str, raw_regex.len()+3, slash).unwrap().to_string()];
-            let subst = Box::new(Subst { regex: re, replacements: replacement });
-            return Ok(Command { cmd: 's', x: CommandData { cmd_subst: subst } });
-        },
-        _ => return Err("Not implemented or something".to_string())
-    }
-}
-
-fn exec_per_line<T: BufRead>(cmd: Command, reader: T) -> result::Result<u64, String> {
-    let mut matches = 0;
-    for maybe_line in reader.lines() {
-        if let Ok(line) = maybe_line {
-            println!("{}", cmd.execute(line)?);
-            matches += 1;
+fn compile(raw_commands: String) -> Vec<Command> {
+    let mut commands : Vec<Command> = Vec::new();
+    for command in raw_commands.split(';') {
+        let mut chars = command.chars();
+        match chars.next() {
+            Some('s') => {
+                let slash = chars.next().unwrap();
+                let rest: Vec<String> = split_at_slash(chars.as_str(), slash);
+                assert_eq!(rest.len(), 3);
+                let re = Regex::new(&rest[0]).unwrap();
+                let replacement = vec![rest[1].to_string()];
+                let subst = Box::new(Subst { regex: re, replacements: replacement });
+                commands.push(Command { cmd: 's', x: CommandData { cmd_subst: subst } });
+            },
+            _ => panic!("Not implemented or something".to_string())
         }
     }
-    Ok(matches)
-
+    commands
 }
 
-fn run(args: ArgMatches) -> result::Result<u64, String> {
+fn execute<T: BufRead>(cmds: Vec<Command>, mut reader: T) {
+    let mut buf = String::new();
+    while reader.read_line(&mut buf).unwrap() != 0 {
+        for cmd in cmds.iter() {
+            cmd.execute(&mut buf);
+        };
+        print!("{}", buf);
+        buf.clear();
+    };
+}
+
+fn run(args: ArgMatches)  {
     let cmd = args.value_of("command").unwrap();
-    let cmd = compile(cmd.to_string())?;
-    match args.value_of("FILE"){
-        Some(filename) => exec_per_line(cmd, BufReader::new(File::open(filename).unwrap())),
-        None => exec_per_line(cmd, BufReader::new(stdin()))
-    }
+    let input = match args.value_of("FILE") {
+        Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())) as Box<BufRead>,
+        None => Box::new(BufReader::new(stdin())) as Box<BufRead>
+    };
+    let cmds = compile(cmd.to_string());
+    execute(cmds, input);
 }
 
 fn parse_args() -> ArgMatches<'static> {
@@ -135,16 +130,4 @@ fn reset_sigpipe() {
 
 #[cfg(test)]
 mod tests {
-    use super::match_slash;
-    use std::process;
-    #[test]
-    fn test_match_slashes() {
-        assert_eq!(Some(r"hi"), match_slash(r"s/hi/there/g", 2, '/'));
-    }
-
-    #[test]
-    fn test_indexed_on_slash() {
-        assert_eq!(None, match_slash(r"s/hi/there/g", 1, '/'));
-
-    }
 }
