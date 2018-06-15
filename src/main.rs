@@ -6,81 +6,72 @@ use std::fs::File;
 use clap::{Arg, App, ArgMatches};
 use std::io::{BufReader,BufRead, stdin};
 use regex::Regex;
+use std::collections::HashSet;
+use compile::compile;
+
+mod compile;
+
+struct Addr {
+    kind: AddrType,
+    state : AddrState,
+    number: Option<u64>,
+    step: Option<i32>,
+}
+
+impl Addr {
+    fn new() -> Addr {
+        Addr{ kind: AddrType::Null, state: AddrState::Closed, number: None, step: None}
+    }
+}
+
+enum AddrState {
+    Closed, Open
+}
+
+enum AddrType {
+    Null, Num,
+}
+
+pub struct Subst {
+    addr : Addr,
+    regex : Regex,
+    options: u8,
+    replacements : Vec<String>
+}
+
+impl Subst {
+    fn new(regex : Regex , replacements : Vec<String>) -> Subst {
+        Subst{addr : Addr::new(), regex, replacements, options : 0}
+    }
+}
+
+#[derive(Copy, Clone)]
+enum SubstType {
+    Global, Print, Eval
+}
+
+trait SedCmd {
+    fn execute(&mut self, s: &mut String);
+}
 
 fn main() {
     reset_sigpipe();
     run(parse_args());
 }
 
-struct Subst{
-    regex: Regex,
-    replacements: Vec<String>,
-}
-
-struct CommandData{
-    cmd_subst: Box<Subst>,
-}
-
-struct Command {
-    cmd: char,
-    x: CommandData,
-}
-
-impl Command {
-    fn execute(&self, s: &mut String){
-        match self.cmd {
-            's' => {
-                if self.x.cmd_subst.regex.is_match(&s){
-                    *s = self.x.cmd_subst.regex.replace_all(s, &*self.x.cmd_subst.replacements[0]).to_string();
-                }
-            },
-            _ => panic!("Undefined cmd {} ", self.cmd),
-        };
-    }
-}
-
-fn split_at_slash(command: &str, slash: char) -> Vec<String>{
-    let mut chars = command.chars();
-    let mut string_builder = "".to_string();
-    let mut matched_strs : Vec<String> = Vec::new();
-    loop {
-        match chars.next() {
-            Some(c) if c == slash && !string_builder.ends_with(r"\")=> {
-                matched_strs.push(string_builder.clone());
-                string_builder = "".to_string();
-            },
-            Some(c) => string_builder.push(c),
-            None => break
-        };
-    };
-    matched_strs.push(string_builder.clone());
-    matched_strs
-}
-
-fn compile(raw_commands: String) -> Vec<Command> {
-    let mut commands : Vec<Command> = Vec::new();
-    for command in raw_commands.split(';') {
-        let mut chars = command.chars();
-        match chars.next() {
-            Some('s') => {
-                let slash = chars.next().unwrap();
-                let rest: Vec<String> = split_at_slash(chars.as_str(), slash);
-                assert_eq!(rest.len(), 3);
-                let re = Regex::new(&rest[0]).unwrap();
-                let replacement = vec![rest[1].to_string()];
-                let subst = Box::new(Subst { regex: re, replacements: replacement });
-                commands.push(Command { cmd: 's', x: CommandData { cmd_subst: subst } });
-            },
-            _ => panic!("Not implemented or something".to_string())
+impl SedCmd for Subst {
+    fn execute(&mut self, s: &mut String){
+        if self.regex.is_match(&s) {
+            *s = self.regex.replace_all(s, &*self.replacements[0]).to_string();
+            self.options += SubstType::Global as u8;
         }
     }
-    commands
 }
 
-fn execute<T: BufRead>(cmds: Vec<Command>, mut reader: T) {
+fn execute<T: BufRead>(cmds: &mut Vec<Box<SedCmd>>, mut reader: T) {
     let mut buf = String::new();
     while reader.read_line(&mut buf).unwrap() != 0 {
-        for cmd in cmds.iter() {
+        for cmd in cmds.iter_mut() {
             cmd.execute(&mut buf);
         };
         print!("{}", buf);
@@ -94,8 +85,8 @@ fn run(args: ArgMatches)  {
         Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())) as Box<BufRead>,
         None => Box::new(BufReader::new(stdin())) as Box<BufRead>
     };
-    let cmds = compile(cmd.to_string());
-    execute(cmds, input);
+    let mut cmds = compile(cmd.to_string());
+    execute(&mut cmds, input);
 }
 
 fn parse_args() -> ArgMatches<'static> {
