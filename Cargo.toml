@@ -7,3 +7,4 @@ authors = ["Josh Preuss ✌ <jopreuss@amazon.com>"]
 regex = "1"
 clap = "2.29.4"
 libc = "0.2"
+nom = "^4.0"

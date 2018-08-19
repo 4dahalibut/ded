@@ -1,3 +1,7 @@
+#![feature(get_type_id)]
+#[macro_use]
+extern crate nom;
+
 extern crate regex;
 extern crate clap;
 extern crate libc;
@@ -8,28 +12,34 @@ use std::io::{BufReader,BufRead, stdin};
 use regex::Regex;
 use std::collections::HashSet;
 use compile::compile;
+use std::any::Any;
 
 mod compile;
 
 struct Addr {
-    kind: AddrType,
+    start: Box<Bound>,
+    end: Box<Bound>,
     state : AddrState,
-    number: Option<u64>,
     step: Option<i32>,
 }
 
 impl Addr {
-    fn new() -> Addr {
-        Addr{ kind: AddrType::Null, state: AddrState::Closed, number: None, step: None}
+    fn new0() -> Addr {
+        Addr{start:Box::new(NoBound{}), end: Box::new(NoBound{}), state: AddrState::Closed, step: None}
+    }
+
+    fn new1(start: Box<Bound>) -> Addr {
+        Addr{start, end: Box::new(NoBound{}), state: AddrState::Closed, step: None}
+    }
+
+    fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
+        Addr{start, end, state: AddrState::Closed, step: None}
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum AddrState {
     Closed, Open
-}
-
-enum AddrType {
-    Null, Num,
 }
 
 pub struct Subst {
@@ -41,7 +51,7 @@ pub struct Subst {
 
 impl Subst {
     fn new(regex : Regex , replacements : Vec<String>) -> Subst {
-        Subst{addr : Addr::new(), regex, replacements, options : 0}
+        Subst{addr : Addr::new0(), regex, replacements, options : 0}
     }
 }
 
@@ -52,6 +62,53 @@ enum SubstType {
 
 trait SedCmd {
     fn execute(&mut self, s: &mut String);
+}
+
+trait Bound {
+    fn matches(&mut self, linenum: u64, line_contents: String) -> bool;
+    fn as_any(&self) -> &Any;
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct NoBound {}
+impl Bound for NoBound {
+    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
+        true
+    }
+    fn as_any(&self) -> &Any {
+        self
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NumBound {num: u64}
+impl Bound for NumBound {
+    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
+        self.num == linenum
+    }
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+}
+
+#[derive(Debug)]
+pub struct RegexBound {regex: Regex}
+impl Bound for RegexBound {
+    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
+        self.regex.is_match(line_contents.as_str())
+    }
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+}
+
+impl PartialEq for RegexBound {
+    fn eq(&self, other: &RegexBound) -> bool {
+        self.regex.as_str() == other.regex.as_str()
+    }
 }
 
 fn main() {
