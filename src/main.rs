@@ -10,13 +10,14 @@ use std::fs::File;
 use clap::{Arg, App, ArgMatches};
 use std::io::{BufReader,BufRead, stdin};
 use regex::Regex;
-use std::collections::HashSet;
-use compile::compile;
+use compile::toplevelparser;
 use std::any::Any;
+use functions::{SedCmd};
 
 mod compile;
+mod functions;
 
-struct Addr {
+pub struct Addr {
     start: Box<Bound>,
     end: Box<Bound>,
     state : AddrState,
@@ -35,37 +36,31 @@ impl Addr {
     fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
         Addr{start, end, state: AddrState::Closed, step: None}
     }
+
+    fn matches(&mut self, linenum: u64, line_contents: String) -> bool {
+        if self.state == AddrState::Unborn {
+            if self.start.matches(linenum, &line_contents) {
+                self.state = AddrState::Open;
+                return true;
+            }
+        }
+        if self.state == AddrState::Open {
+            if self.end.matches(linenum, &line_contents) {
+                self.state = AddrState::Closed;
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Debug, PartialEq)]
 enum AddrState {
-    Closed, Open
-}
-
-pub struct Subst {
-    addr : Addr,
-    regex : Regex,
-    options: u8,
-    replacements : Vec<String>
-}
-
-impl Subst {
-    fn new(regex : Regex , replacements : Vec<String>) -> Subst {
-        Subst{addr : Addr::new0(), regex, replacements, options : 0}
-    }
-}
-
-#[derive(Copy, Clone)]
-enum SubstType {
-    Global, Print, Eval
-}
-
-trait SedCmd {
-    fn execute(&mut self, s: &mut String);
+    Unborn, Closed, Open
 }
 
 trait Bound {
-    fn matches(&mut self, linenum: u64, line_contents: String) -> bool;
+    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool;
     fn as_any(&self) -> &Any;
 }
 
@@ -73,7 +68,7 @@ trait Bound {
 #[derive(Debug, PartialEq)]
 pub struct NoBound {}
 impl Bound for NoBound {
-    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
+    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
         true
     }
     fn as_any(&self) -> &Any {
@@ -84,7 +79,7 @@ impl Bound for NoBound {
 #[derive(Debug, PartialEq)]
 pub struct NumBound {num: u64}
 impl Bound for NumBound {
-    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
+    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
         self.num == linenum
     }
     fn as_any(&self) -> &Any {
@@ -96,8 +91,8 @@ impl Bound for NumBound {
 #[derive(Debug)]
 pub struct RegexBound {regex: Regex}
 impl Bound for RegexBound {
-    fn matches(&mut self, linenum: u64, line_contents: String) -> bool{
-        self.regex.is_match(line_contents.as_str())
+    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
+        self.regex.is_match(line_contents)
     }
     fn as_any(&self) -> &Any {
         self
@@ -110,51 +105,49 @@ impl PartialEq for RegexBound {
         self.regex.as_str() == other.regex.as_str()
     }
 }
+//TODO: Write logic for address matching, add said gate into all execute methods
+
+fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
+    let mut pattern_space = String::new();
+    let mut hold_space = String::new();
+    let mut linenum = 0;
+    while reader.read_line(&mut pattern_space).unwrap() != 0 {
+        cmd.execute(linenum, &mut hold_space, &mut pattern_space);
+        print!("{}", pattern_space);
+        pattern_space.clear();
+        linenum += 1;
+    };
+}
 
 fn main() {
     reset_sigpipe();
     run(parse_args());
 }
 
-impl SedCmd for Subst {
-    fn execute(&mut self, s: &mut String){
-        if self.regex.is_match(&s) {
-            *s = self.regex.replace_all(s, &*self.replacements[0]).to_string();
-            self.options += SubstType::Global as u8;
-        }
-    }
-}
-
-fn execute<T: BufRead>(cmds: &mut Vec<Box<SedCmd>>, mut reader: T) {
-    let mut buf = String::new();
-    while reader.read_line(&mut buf).unwrap() != 0 {
-        for cmd in cmds.iter_mut() {
-            cmd.execute(&mut buf);
-        };
-        print!("{}", buf);
-        buf.clear();
-    };
-}
-
 fn run(args: ArgMatches)  {
-    let cmd = args.value_of("command").unwrap();
+    let raw_command_text = args.value_of("command").unwrap();
     let input = match args.value_of("FILE") {
         Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())) as Box<BufRead>,
         None => Box::new(BufReader::new(stdin())) as Box<BufRead>
     };
-    let mut cmds = compile(cmd.to_string());
-    execute(&mut cmds, input);
+    let ref mut cmd = toplevelparser(raw_command_text).unwrap().1;
+    execute(cmd, input);
 }
 
 fn parse_args() -> ArgMatches<'static> {
     App::new("Ded - Killin Sed")
         .about("Doesnt do much of anythin")
+        .arg(Arg::with_name("silent")
+            .short("n")
+            .help("By default, each line of input is echoed to the standard output after all \
+            of the commands have been applied to it.  The -n option suppresses this behavior"))
         .arg(Arg::with_name("command")
             .short("e")
             .long("expression")
             .value_name("command")
             .help("Append the editing commands specified by the command argument to the list of commands.")
             .takes_value(true)
+            .multiple(true)
             .required(true))
         .arg(Arg::with_name("FILE")
             .help("Sets the input file to use")
