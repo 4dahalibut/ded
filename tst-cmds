@@ -18,7 +18,7 @@ sed "s/$/`echo \\\r`/"
 sed 's/$/\r/'
 sed "s/$//"
 sed -n p
-sed "s/\r//" infile >outfile
+sed "s/\r//"
 sed 's/^[ \t]*//'
 sed 's/[ \t]*$//'
 sed 's/^[ \t]*//;s/[ \t]*$//'
@@ -78,7 +78,7 @@ sed -n '/Iowa/,/Montana/p'
 sed '/Iowa/,/Montana/d'
 sed '$!N; /^\(.*\)\n\1$/!P; D'
 sed -n 'G; s/\n/&&/; /^\([ -~]*\n\).*\n\1/d; s/\n//; h; P'
-sed '$!N; s/^\(.*\)\n\1$/\1/; t; D'
+sed '$!N; s/^\(.*\)\n\1$/\1/; t' -e D
 sed '1,10d'
 sed '$d'
 sed 'N;$!P;$!D;$d'
@@ -106,12 +106,11 @@ sed 's/ *(.*)//; s/>.*//; s/.*[:<] *//'
 sed 's/^/> /'
 sed 's/^> //'
 sed -e :a -e 's/<[^>]*>//g;/</N;//ba'
-sed '/^end/,/^begin/d' file1 file2 ... fileX | uudecode
-sed '/^end/,/^begin/d' "$@" | uudecode
+sed '/^end/,/^begin/d'
+sed '/^end/,/^begin/d' "$@"
 sed '/./{H;d;};x;s/\n/={NL}=/g' file | sort | sed '1s/={NL}=//;s/={NL}=/\n/g'
-sed '10q' filename
-sed '10q' filename > newfile
-sed", "man regexp", or the subsection on regular expressions in "man
+sed '10q'
+sed '10q'
 sed -e '/AAA/b' -e '/BBB/b' -e '/CCC/b' -e d
 sed '/AAA/b;/BBB/b;/CCC/b;d'
 sed '/AAA\|BBB\|CCC/b;d'
