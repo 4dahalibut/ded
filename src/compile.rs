@@ -1,4 +1,3 @@
-#![feature(trace_macros)]
 extern crate nom;
 extern crate regex;
 extern crate std;

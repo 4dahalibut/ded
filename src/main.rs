@@ -55,7 +55,8 @@ impl Addr {
     }
 
     fn matches(&self, linenum: u64, line_contents: String) -> bool {
-        match *self.state.borrow() {
+        let copystate = self.state.borrow().clone();
+        match copystate {
             AddrState::Unborn => {
                 if self.start.matches(linenum, &line_contents) {
                     self.state.replace(AddrState::Open);
@@ -67,9 +68,9 @@ impl Addr {
             AddrState::Open => {
                 if self.end.matches(linenum, &line_contents) {
                     self.state.replace(AddrState::Closed);
-                    true
-                } else {
                     false
+                } else {
+                    true
                 }
             }
             AddrState::Closed => false,
@@ -77,7 +78,7 @@ impl Addr {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum AddrState {
     Unborn,
     Closed,
@@ -119,7 +120,6 @@ pub struct RegexBound {
 }
 impl Bound for RegexBound {
     fn matches(&self, _linenum: u64, line_contents: &str) -> bool {
-        println!("Regex matches");
         self.regex.is_match(line_contents)
     }
     fn as_any(&self) -> &Any {
@@ -136,7 +136,7 @@ impl PartialEq for RegexBound {
 fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
     let mut pattern_space = String::new();
     let mut hold_space = String::new();
-    let mut linenum = 0;
+    let mut linenum = 1;
     while reader.read_line(&mut pattern_space).unwrap() != 0 {
         cmd.execute(linenum, &mut hold_space, &mut pattern_space);
         print!("{}", pattern_space);

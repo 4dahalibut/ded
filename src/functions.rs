@@ -32,7 +32,6 @@ impl Subst {
 
 impl SedCmd for Subst {
     fn execute(&self, _linenum: u64, _hold_space: &mut String, pattern_space: &mut String) {
-        println!("s exec");
         if self.find.is_match(&pattern_space) {
             *pattern_space = self
                 .find
@@ -51,7 +50,6 @@ pub struct Append {
 
 impl SedCmd for Append {
     fn execute(&self, _linenum: u64, _hold_space: &mut String, pattern_space: &mut String) {
-        println!("A exec");
         *pattern_space += &self.text;
     }
     fn as_any(&self) -> &Any {
@@ -63,7 +61,6 @@ pub struct AppendHold {}
 
 impl SedCmd for AppendHold {
     fn execute(&self, _linenum: u64, hold_space: &mut String, pattern_space: &mut String) {
-        println!("G exec");
         *pattern_space += "\n";
         *pattern_space += hold_space;
     }
@@ -78,12 +75,8 @@ pub struct MoreSedCmds {
 
 impl SedCmd for MoreSedCmds {
     fn execute(&self, linenum: u64, hold_space: &mut String, pattern_space: &mut String) {
-        println!("MoreSedCmds execute");
-        println!("{}", self.cmds.len());
-        //let a: &Addr = &self.cmds.first().unwrap().0;
         for (addr, cmd) in &self.cmds {
             if addr.matches(linenum, pattern_space.to_string()) {
-                println!("something execute");
                 cmd.execute(linenum, hold_space, pattern_space)
             }
         }
