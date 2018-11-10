@@ -2,17 +2,19 @@
 #[macro_use]
 extern crate nom;
 
-extern crate regex;
 extern crate clap;
 extern crate libc;
+extern crate regex;
 
-use std::fs::File;
-use clap::{Arg, App, ArgMatches};
-use std::io::{BufReader,BufRead, stdin};
+use clap::{App, Arg, ArgMatches};
+use crate::compile::toplevelparser;
+use crate::functions::SedCmd;
 use regex::Regex;
-use compile::toplevelparser;
 use std::any::Any;
-use functions::{SedCmd};
+use std::cell::RefCell;
+use std::fs::File;
+use std::io::{stdin, BufRead, BufReader};
+use std::rc::Rc;
 
 mod compile;
 mod functions;
@@ -20,55 +22,77 @@ mod functions;
 pub struct Addr {
     start: Box<Bound>,
     end: Box<Bound>,
-    state : AddrState,
+    state: Rc<RefCell<AddrState>>,
     step: Option<i32>,
 }
 
 impl Addr {
     fn new0() -> Addr {
-        Addr{start:Box::new(NoBound{}), end: Box::new(NoBound{}), state: AddrState::Closed, step: None}
+        Addr {
+            start: Box::new(NoBound {}),
+            end: Box::new(NoBound {}),
+            state: Rc::new(RefCell::new(AddrState::Unborn)),
+            step: None,
+        }
     }
 
     fn new1(start: Box<Bound>) -> Addr {
-        Addr{start, end: Box::new(NoBound{}), state: AddrState::Closed, step: None}
+        Addr {
+            start,
+            end: Box::new(NoBound {}),
+            state: Rc::new(RefCell::new(AddrState::Unborn)),
+            step: None,
+        }
     }
 
     fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
-        Addr{start, end, state: AddrState::Closed, step: None}
+        Addr {
+            start,
+            end,
+            state: Rc::new(RefCell::new(AddrState::Unborn)),
+            step: None,
+        }
     }
 
-    fn matches(&mut self, linenum: u64, line_contents: String) -> bool {
-        if self.state == AddrState::Unborn {
-            if self.start.matches(linenum, &line_contents) {
-                self.state = AddrState::Open;
-                return true;
+    fn matches(&self, linenum: u64, line_contents: String) -> bool {
+        match *self.state.borrow() {
+            AddrState::Unborn => {
+                if self.start.matches(linenum, &line_contents) {
+                    self.state.replace(AddrState::Open);
+                    true
+                } else {
+                    false
+                }
             }
-        }
-        if self.state == AddrState::Open {
-            if self.end.matches(linenum, &line_contents) {
-                self.state = AddrState::Closed;
-                return true;
+            AddrState::Open => {
+                if self.end.matches(linenum, &line_contents) {
+                    self.state.replace(AddrState::Closed);
+                    true
+                } else {
+                    false
+                }
             }
+            AddrState::Closed => false,
         }
-        false
     }
 }
 
 #[derive(Debug, PartialEq)]
 enum AddrState {
-    Unborn, Closed, Open
+    Unborn,
+    Closed,
+    Open,
 }
 
 trait Bound {
-    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool;
+    fn matches(&self, linenum: u64, line_contents: &str) -> bool;
     fn as_any(&self) -> &Any;
 }
-
 
 #[derive(Debug, PartialEq)]
 pub struct NoBound {}
 impl Bound for NoBound {
-    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
+    fn matches(&self, _linenum: u64, _line_contents: &str) -> bool {
         true
     }
     fn as_any(&self) -> &Any {
@@ -77,27 +101,30 @@ impl Bound for NoBound {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct NumBound {num: u64}
+pub struct NumBound {
+    num: u64,
+}
 impl Bound for NumBound {
-    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
+    fn matches(&self, linenum: u64, _line_contents: &str) -> bool {
         self.num == linenum
     }
     fn as_any(&self) -> &Any {
         self
     }
-
 }
 
 #[derive(Debug)]
-pub struct RegexBound {regex: Regex}
+pub struct RegexBound {
+    regex: Regex,
+}
 impl Bound for RegexBound {
-    fn matches(&mut self, linenum: u64, line_contents: &str) -> bool{
+    fn matches(&self, _linenum: u64, line_contents: &str) -> bool {
+        println!("Regex matches");
         self.regex.is_match(line_contents)
     }
     fn as_any(&self) -> &Any {
         self
     }
-
 }
 
 impl PartialEq for RegexBound {
@@ -105,7 +132,6 @@ impl PartialEq for RegexBound {
         self.regex.as_str() == other.regex.as_str()
     }
 }
-//TODO: Write logic for address matching, add said gate into all execute methods
 
 fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
     let mut pattern_space = String::new();
@@ -116,7 +142,7 @@ fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
         print!("{}", pattern_space);
         pattern_space.clear();
         linenum += 1;
-    };
+    }
 }
 
 fn main() {
@@ -124,11 +150,11 @@ fn main() {
     run(parse_args());
 }
 
-fn run(args: ArgMatches)  {
+fn run(args: ArgMatches) {
     let raw_command_text = args.value_of("command").unwrap();
     let input = match args.value_of("FILE") {
         Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())) as Box<BufRead>,
-        None => Box::new(BufReader::new(stdin())) as Box<BufRead>
+        None => Box::new(BufReader::new(stdin())) as Box<BufRead>,
     };
     let ref mut cmd = toplevelparser(raw_command_text).unwrap().1;
     execute(cmd, input);
@@ -170,5 +196,4 @@ fn reset_sigpipe() {
 }
 
 #[cfg(test)]
-mod tests {
-}
+mod tests {}

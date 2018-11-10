@@ -2,37 +2,42 @@ extern crate nom;
 extern crate regex;
 use regex::Regex;
 use std::any::Any;
-use Addr;
+use crate::Addr;
 
 pub trait SedCmd {
-    fn execute(&mut self, linenum: u64, hold_space: &mut String, pattern_space: &mut String);
+    fn execute(&self, linenum: u64, hold_space: &mut String, pattern_space: &mut String);
     fn as_any(&self) -> &Any;
 }
 
+#[derive(Debug)]
 pub struct Subst {
-    find: Regex,
-    replace: String,
+    pub find: Regex,
+    pub replace: String,
     global: bool,
     print: bool,
-    eval: bool
+    eval: bool,
 }
 
 impl Subst {
-    pub fn new(regex : Regex , replace: String) -> Subst {
-        Subst{
+    pub fn new(regex: Regex, replace: String) -> Subst {
+        Subst {
             find: regex,
             replace,
             global: false,
             print: false,
-            eval: false
+            eval: false,
         }
     }
 }
 
 impl SedCmd for Subst {
-    fn execute(&mut self, linenum: u64, hold_space: &mut String, pattern_space: &mut String){
+    fn execute(&self, _linenum: u64, _hold_space: &mut String, pattern_space: &mut String) {
+        println!("s exec");
         if self.find.is_match(&pattern_space) {
-            *pattern_space = self.find.replace_all(pattern_space, &*self.replace).to_string();
+            *pattern_space = self
+                .find
+                .replace_all(pattern_space, &*self.replace)
+                .to_string();
         }
     }
     fn as_any(&self) -> &Any {
@@ -41,11 +46,12 @@ impl SedCmd for Subst {
 }
 
 pub struct Append {
-    text: String
+    text: String,
 }
 
 impl SedCmd for Append {
-    fn execute(&mut self, linenum: u64, hold_space: &mut String, pattern_space: &mut String){
+    fn execute(&self, _linenum: u64, _hold_space: &mut String, pattern_space: &mut String) {
+        println!("A exec");
         *pattern_space += &self.text;
     }
     fn as_any(&self) -> &Any {
@@ -56,7 +62,8 @@ impl SedCmd for Append {
 pub struct AppendHold {}
 
 impl SedCmd for AppendHold {
-    fn execute(&mut self, linenum: u64, hold_space: &mut String, pattern_space: &mut String){
+    fn execute(&self, _linenum: u64, hold_space: &mut String, pattern_space: &mut String) {
+        println!("G exec");
         *pattern_space += "\n";
         *pattern_space += hold_space;
     }
@@ -66,17 +73,22 @@ impl SedCmd for AppendHold {
 }
 
 pub struct MoreSedCmds {
-    pub cmds: Vec<(Addr, Box<SedCmd>)>
+    pub cmds: Vec<(Addr, Box<SedCmd>)>,
 }
 
 impl SedCmd for MoreSedCmds {
-    fn execute(&mut self, linenum: u64, hold_space: &mut String, pattern_space: &mut String){
-        for (addr, cmd) in &mut self.cmds {
+    fn execute(&self, linenum: u64, hold_space: &mut String, pattern_space: &mut String) {
+        println!("MoreSedCmds execute");
+        println!("{}", self.cmds.len());
+        //let a: &Addr = &self.cmds.first().unwrap().0;
+        for (addr, cmd) in &self.cmds {
             if addr.matches(linenum, pattern_space.to_string()) {
+                println!("something execute");
                 cmd.execute(linenum, hold_space, pattern_space)
             }
         }
     }
-    fn as_any(&self) -> &Any { self }
+    fn as_any(&self) -> &Any {
+        self
+    }
 }
-
