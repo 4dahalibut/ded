@@ -1,0 +1,12 @@
+s/oo/ee/g
+1G
+G
+:a;N;$!ba;s/\n/ /g
+y/oo/ee/
+s/o/ee/
+s/.$//
+$=
+/oo/{x;p;x;}
+/oo/d
+s/\(.*\)/\L\1/
+'s/,/\\\n/g'

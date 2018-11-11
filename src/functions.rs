@@ -1,6 +1,6 @@
 extern crate nom;
 extern crate regex;
-use crate::Addr;
+use crate::addr::Addr;
 use regex::Regex;
 use std::any::Any;
 

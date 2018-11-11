@@ -2,6 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::Read;
 use std::process;
 use std::thread;
 
@@ -82,9 +83,13 @@ pub fn compare_with_sed(argstring: String, input: &str) {
 
 #[test]
 fn test_from_file() {
-    let file = File::open("valid-tests").unwrap();
-    let input: String = "yoohoo\nyeehee\n".to_string();
-    for line in BufReader::new(file).lines() {
+    let test_commands = File::open("tests/data/valid-tests").unwrap();
+    let mut input = "".to_string();
+    File::open("tests/data/hii")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+    for line in BufReader::new(test_commands).lines() {
         print!("Running command: {}...", line.as_ref().unwrap());
         compare_with_sed(line.unwrap(), &input);
         println!("Pass!");

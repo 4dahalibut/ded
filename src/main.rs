@@ -9,133 +9,12 @@ extern crate regex;
 use clap::{App, Arg, ArgMatches};
 use crate::compile::toplevelparser;
 use crate::functions::SedCmd;
-use regex::Regex;
-use std::any::Any;
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader};
-use std::rc::Rc;
 
+mod addr;
 mod compile;
 mod functions;
-
-pub struct Addr {
-    num_bounds: NumBounds,
-    start: Option<Box<Bound>>,
-    end: Option<Box<Bound>>,
-    state: Rc<RefCell<AddrState>>,
-}
-
-impl Addr {
-    fn new0() -> Addr {
-        Addr {
-            num_bounds: NumBounds::ZERO,
-            start: None,
-            end: None,
-            state: Rc::new(RefCell::new(AddrState::Unborn)),
-        }
-    }
-
-    fn new1(start: Box<Bound>) -> Addr {
-        Addr {
-            num_bounds: NumBounds::ONE,
-            start: Some(start),
-            end: None,
-            state: Rc::new(RefCell::new(AddrState::Unborn)),
-        }
-    }
-
-    fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
-        Addr {
-            num_bounds: NumBounds::TWO,
-            start: Some(start),
-            end: Some(end),
-            state: Rc::new(RefCell::new(AddrState::Unborn)),
-        }
-    }
-
-    fn matches(&self, linenum: u64, line_contents: String) -> bool {
-        let copystate = self.state.borrow().clone();
-        match copystate {
-            AddrState::Unborn => match &self.start {
-                Some(bound) => {
-                    if bound.matches(linenum, &line_contents) {
-                        if self.num_bounds == NumBounds::TWO {
-                            self.state.replace(AddrState::Open);
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                None => true,
-            },
-            AddrState::Open => match &self.end {
-                Some(bound) => {
-                    if bound.matches(linenum, &line_contents) {
-                        self.state.replace(AddrState::Closed);
-                        true
-                    } else {
-                        true
-                    }
-                }
-                None => true,
-            },
-            AddrState::Closed => false,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-enum AddrState {
-    Unborn,
-    Closed,
-    Open,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-enum NumBounds {
-    ZERO,
-    ONE,
-    TWO,
-}
-
-trait Bound {
-    fn matches(&self, linenum: u64, line_contents: &str) -> bool;
-    fn as_any(&self) -> &Any;
-}
-
-#[derive(Debug, PartialEq)]
-pub struct NumBound {
-    num: u64,
-}
-impl Bound for NumBound {
-    fn matches(&self, linenum: u64, _line_contents: &str) -> bool {
-        self.num == linenum
-    }
-    fn as_any(&self) -> &Any {
-        self
-    }
-}
-
-#[derive(Debug)]
-pub struct RegexBound {
-    regex: Regex,
-}
-impl Bound for RegexBound {
-    fn matches(&self, _linenum: u64, line_contents: &str) -> bool {
-        self.regex.is_match(line_contents)
-    }
-    fn as_any(&self) -> &Any {
-        self
-    }
-}
-
-impl PartialEq for RegexBound {
-    fn eq(&self, other: &RegexBound) -> bool {
-        self.regex.as_str() == other.regex.as_str()
-    }
-}
 
 fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
     let mut pattern_space = String::new();
@@ -153,7 +32,6 @@ fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
 }
 
 fn main() {
-    reset_sigpipe();
     run(parse_args());
 }
 
@@ -168,8 +46,8 @@ fn run(args: ArgMatches) {
 }
 
 fn parse_args() -> ArgMatches<'static> {
-    App::new("Ded - Killin Sed")
-        .about("Doesnt do much of anythin")
+    App::new("Ded - Rusty sed")
+        .about("Reinventing a wheel")
         .arg(Arg::with_name("silent")
             .short("n")
             .help("By default, each line of input is echoed to the standard output after all \
@@ -188,16 +66,4 @@ fn parse_args() -> ArgMatches<'static> {
             .index(1)
             .required(false))
         .get_matches()
-}
-
-#[cfg(unix)]
-fn reset_sigpipe() {
-    unsafe {
-        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
-    }
-}
-
-#[cfg(not(unix))]
-fn reset_sigpipe() {
-    // no-op
 }
