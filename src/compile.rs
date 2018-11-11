@@ -1,13 +1,13 @@
 extern crate nom;
 extern crate regex;
 extern crate std;
+
 use crate::addr::{Addr, Bound, NumBound, RegexBound};
 use crate::functions::{AppendHold, MoreSedCmds, SedCmd, Subst};
+use nom::digit;
 use regex::Regex;
 use std::str;
 use std::str::FromStr;
-
-use nom::digit;
 
 named!(num_bound<&str, Box<Bound> >,
     do_parse!(

@@ -93,6 +93,7 @@ pub trait Bound {
 pub struct NumBound {
     pub num: u64,
 }
+
 impl Bound for NumBound {
     fn matches(&self, linenum: u64, _line_contents: &str) -> bool {
         self.num == linenum
@@ -106,6 +107,7 @@ impl Bound for NumBound {
 pub struct RegexBound {
     pub regex: Regex,
 }
+
 impl Bound for RegexBound {
     fn matches(&self, _linenum: u64, line_contents: &str) -> bool {
         self.regex.is_match(line_contents)

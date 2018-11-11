@@ -1,9 +1,8 @@
 #![feature(get_type_id)]
-#[macro_use]
-extern crate nom;
-
 extern crate clap;
 extern crate libc;
+#[macro_use]
+extern crate nom;
 extern crate regex;
 
 use clap::{App, Arg, ArgMatches};

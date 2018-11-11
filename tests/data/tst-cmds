@@ -1,0 +1,121 @@
+sed G
+sed '/^$/d;G'
+sed 'G;G'
+sed 'n;d'
+sed '/regex/{x;p;x;}'
+sed '/regex/G'
+sed '/regex/{x;p;x;G;}'
+sed = filename | sed 'N;s/\n/\t/'
+sed = filename | sed 'N; s/^/     /; s/ *\(.\{6,\}\)\n/\1  /'
+sed '/./=' filename | sed '/./N; s/\n/ /'
+sed -n '$='
+sed 's/.$//'
+sed 's/^M$//'
+sed 's/\x0D$//'
+sed "s/$/`echo -e \\\r`/"
+sed 's/$'"/`echo \\\r`/"
+sed "s/$/`echo \\\r`/"
+sed 's/$/\r/'
+sed "s/$//"
+sed -n p
+sed "s/\r//"
+sed 's/^[ \t]*//'
+sed 's/[ \t]*$//'
+sed 's/^[ \t]*//;s/[ \t]*$//'
+sed 's/^/     /'
+sed -e :a -e 's/^.\{1,78\}$/ &/;ta'
+sed  -e :a -e 's/^.\{1,77\}$/ & /;ta'
+sed  -e :a -e 's/^.\{1,77\}$/ &/;ta' -e 's/\( *\)\1/\1/'
+sed 's/foo/bar/'
+sed 's/foo/bar/4'
+sed 's/foo/bar/g'
+sed 's/\(.*\)foo\(.*foo\)/\1bar\2/'
+sed 's/\(.*\)foo/\1bar/'
+sed '/baz/s/foo/bar/g'
+sed '/baz/!s/foo/bar/g'
+sed 's/scarlet/red/g;s/ruby/red/g;s/puce/red/g'
+sed '1!G;h;$!d'
+sed -n '1!G;h;$p'
+sed '/\n/!G;s/\(.\)\(.*\n\)/&\2\1/;//D;s/.//'
+sed '$!N;s/\n/ /'
+sed -e :a -e '/\\$/N; s/\\\n//; ta'
+sed -e :a -e '$!N;s/\n=/ /;ta' -e 'P;D'
+sed -e :a -e 's/\(.*[0-9]\)\([0-9]\{3\}\)/\1,\2/;ta'
+sed 'n;n;n;n;G;'
+sed 10q
+sed q
+sed -e :a -e '$q;N;11,$D;ba'
+sed '$!N;$!D'
+sed '$!d'
+sed -n '$p'
+sed -e '$!{h;d;}' -e x
+sed -e '1{$q;}' -e '$!{h;d;}' -e x
+sed -e '1{$d;}' -e '$!{h;d;}' -e x
+sed -n '/regexp/p'
+sed '/regexp/!d'
+sed -n '/regexp/!p'
+sed '/regexp/d'
+sed -n '/regexp/{g;1!p;};h'
+sed -n '/regexp/{n;p;}'
+sed -n -e '/regexp/{=;x;1!p;g;$!N;p;D;}' -e h
+sed '/AAA/!d; /BBB/!d; /CCC/!d'
+sed '/AAA.*BBB.*CCC/!d'
+sed -e '/AAA/b' -e '/BBB/b' -e '/CCC/b' -e d
+sed -e '/./{H;$!d;}' -e 'x;/AAA/!d;'
+sed -e '/./{H;$!d;}' -e 'x;/AAA/!d;/BBB/!d;/CCC/!d'
+sed -e '/./{H;$!d;}' -e 'x;/AAA/b' -e '/BBB/b' -e '/CCC/b' -e d
+sed -n '/^.\{65\}/p'
+sed -n '/^.\{65\}/!p'
+sed '/^.\{65\}/d'
+sed -n '/regexp/,$p'
+sed -n '8,12p'
+sed '8,12!d'
+sed -n '52p'
+sed '52!d'
+sed '52q;d'
+sed -n '3,${p;n;n;n;n;n;n;}'
+sed -n '/Iowa/,/Montana/p'
+sed '/Iowa/,/Montana/d'
+sed '$!N; /^\(.*\)\n\1$/!P; D'
+sed -n 'G; s/\n/&&/; /^\([ -~]*\n\).*\n\1/d; s/\n//; h; P'
+sed '$!N; s/^\(.*\)\n\1$/\1/; t' -e D
+sed '1,10d'
+sed '$d'
+sed 'N;$!P;$!D;$d'
+sed -e :a -e '$d;N;2,10ba' -e 'P;D'
+sed -n -e :a -e '1,10!{P;N;D;};N;ba'
+sed 'n;n;n;n;n;n;n;d;'
+sed '/pattern/d'
+sed '/^$/d'
+sed '/./!d'
+sed '/./,/^$/!d'
+sed '/^$/N;/\n$/D'
+sed '/^$/N;/\n$/N;//D'
+sed '/./,$!d'
+sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+sed -e :a -e '/^\n*$/N;/\n$/ba'
+sed -n '/^$/{p;h;};/./{x;/./p;}'
+sed "s/.`echo \\\b`//g"
+sed 's/.^H//g'
+sed 's/.\x08//g'
+sed '/^$/q'
+sed '1,/^$/d'
+sed '/^Subject: */!d; s///;q'
+sed '/^Reply-To:/q; /^From:/h; /./d;g;q'
+sed 's/ *(.*)//; s/>.*//; s/.*[:<] *//'
+sed 's/^/> /'
+sed 's/^> //'
+sed -e :a -e 's/<[^>]*>//g;/</N;//ba'
+sed '/^end/,/^begin/d'
+sed '/^end/,/^begin/d' "$@"
+sed '/./{H;d;};x;s/\n/={NL}=/g' file | sort | sed '1s/={NL}=//;s/={NL}=/\n/g'
+sed '10q'
+sed '10q'
+sed -e '/AAA/b' -e '/BBB/b' -e '/CCC/b' -e d
+sed '/AAA/b;/BBB/b;/CCC/b;d'
+sed '/AAA\|BBB\|CCC/b;d'
+sed 's/foo/bar/g' filename
+sed '/foo/ s/foo/bar/g' filename
+sed '/foo/ s//bar/g' filename
+sed -n '45,50p' filename
+sed -n '51q;45,50p' filename

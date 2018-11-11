@@ -1,2 +1,1 @@
-pub struct Args {
-}
+pub struct Args {}

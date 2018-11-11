@@ -3,10 +3,9 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
+use std::io::Write;
 use std::process;
 use std::thread;
-
-use std::io::Write;
 
 fn ded_command() -> process::Command {
     let root = env::current_exe()
