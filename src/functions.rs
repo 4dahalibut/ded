@@ -1,8 +1,8 @@
 extern crate nom;
 extern crate regex;
+use crate::Addr;
 use regex::Regex;
 use std::any::Any;
-use crate::Addr;
 
 pub trait SedCmd {
     fn execute(&self, linenum: u64, hold_space: &mut String, pattern_space: &mut String);

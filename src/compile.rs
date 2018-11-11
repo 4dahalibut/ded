@@ -2,10 +2,10 @@ extern crate nom;
 extern crate regex;
 extern crate std;
 use crate::functions::{AppendHold, MoreSedCmds, SedCmd, Subst};
+use crate::{Addr, Bound, NumBound, RegexBound};
 use regex::Regex;
 use std::str;
 use std::str::FromStr;
-use crate::{Addr, Bound, NoBound, NumBound, RegexBound};
 
 use nom::digit;
 
@@ -83,27 +83,10 @@ fn parse_regex_bound() {
 
 #[test]
 fn parse_no_addr() {
-    let singleton = NoBound {};
     let addr_to_test = addr("abc").unwrap();
     assert_eq!(addr_to_test.0, "abc");
-    assert_eq!(
-        *addr_to_test
-            .1
-            .start
-            .as_any()
-            .downcast_ref::<NoBound>()
-            .unwrap(),
-        singleton
-    );
-    assert_eq!(
-        *addr_to_test
-            .1
-            .end
-            .as_any()
-            .downcast_ref::<NoBound>()
-            .unwrap(),
-        singleton
-    );
+    assert!(addr_to_test.1.start.is_none());
+    assert!(addr_to_test.1.end.is_none());
 }
 
 #[test]
@@ -114,6 +97,7 @@ fn parse_one_addr() {
         (*addr_to_test
             .1
             .start
+            .unwrap()
             .as_any()
             .downcast_ref::<RegexBound>()
             .unwrap())
@@ -121,15 +105,7 @@ fn parse_one_addr() {
         .as_str(),
         "wot"
     );
-    assert_eq!(
-        *addr_to_test
-            .1
-            .end
-            .as_any()
-            .downcast_ref::<NoBound>()
-            .unwrap(),
-        NoBound {}
-    );
+    assert!(addr_to_test.1.end.is_none());
 }
 
 #[test]
@@ -140,6 +116,7 @@ fn parse_two_addr() {
         (*addr_to_test
             .1
             .start
+            .unwrap()
             .as_any()
             .downcast_ref::<NumBound>()
             .unwrap())
@@ -150,6 +127,7 @@ fn parse_two_addr() {
         (*addr_to_test
             .1
             .end
+            .unwrap()
             .as_any()
             .downcast_ref::<RegexBound>()
             .unwrap())
@@ -178,7 +156,6 @@ named!(substitute<&str, Box<SedCmd> >,
         })
     )
 );
-
 
 named!(aaalt<&str, Box<SedCmd> >,
     alt!(
@@ -250,7 +227,14 @@ fn compile_g() {
     let cmds = result.as_any().downcast_ref::<MoreSedCmds>();
     let (addr, cmd) = cmds.unwrap().cmds.first().unwrap();
     assert_eq!(
-        (*addr.start.as_any().downcast_ref::<NumBound>().unwrap()).num,
+        (*addr
+            .start
+            .as_ref()
+            .unwrap()
+            .as_any()
+            .downcast_ref::<NumBound>()
+            .unwrap())
+        .num,
         1
     );
     let mut pattern_space = "this".to_string();

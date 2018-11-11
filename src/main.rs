@@ -20,59 +20,67 @@ mod compile;
 mod functions;
 
 pub struct Addr {
-    start: Box<Bound>,
-    end: Box<Bound>,
+    num_bounds: NumBounds,
+    start: Option<Box<Bound>>,
+    end: Option<Box<Bound>>,
     state: Rc<RefCell<AddrState>>,
-    step: Option<i32>,
 }
 
 impl Addr {
     fn new0() -> Addr {
         Addr {
-            start: Box::new(NoBound {}),
-            end: Box::new(NoBound {}),
+            num_bounds: NumBounds::ZERO,
+            start: None,
+            end: None,
             state: Rc::new(RefCell::new(AddrState::Unborn)),
-            step: None,
         }
     }
 
     fn new1(start: Box<Bound>) -> Addr {
         Addr {
-            start,
-            end: Box::new(NoBound {}),
+            num_bounds: NumBounds::ONE,
+            start: Some(start),
+            end: None,
             state: Rc::new(RefCell::new(AddrState::Unborn)),
-            step: None,
         }
     }
 
     fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
         Addr {
-            start,
-            end,
+            num_bounds: NumBounds::TWO,
+            start: Some(start),
+            end: Some(end),
             state: Rc::new(RefCell::new(AddrState::Unborn)),
-            step: None,
         }
     }
 
     fn matches(&self, linenum: u64, line_contents: String) -> bool {
         let copystate = self.state.borrow().clone();
         match copystate {
-            AddrState::Unborn => {
-                if self.start.matches(linenum, &line_contents) {
-                    self.state.replace(AddrState::Open);
-                    true
-                } else {
-                    false
+            AddrState::Unborn => match &self.start {
+                Some(bound) => {
+                    if bound.matches(linenum, &line_contents) {
+                        if self.num_bounds == NumBounds::TWO {
+                            self.state.replace(AddrState::Open);
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 }
-            }
-            AddrState::Open => {
-                if self.end.matches(linenum, &line_contents) {
-                    self.state.replace(AddrState::Closed);
-                    false
-                } else {
-                    true
+                None => true,
+            },
+            AddrState::Open => match &self.end {
+                Some(bound) => {
+                    if bound.matches(linenum, &line_contents) {
+                        self.state.replace(AddrState::Closed);
+                        true
+                    } else {
+                        true
+                    }
                 }
-            }
+                None => true,
+            },
             AddrState::Closed => false,
         }
     }
@@ -85,20 +93,16 @@ enum AddrState {
     Open,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+enum NumBounds {
+    ZERO,
+    ONE,
+    TWO,
+}
+
 trait Bound {
     fn matches(&self, linenum: u64, line_contents: &str) -> bool;
     fn as_any(&self) -> &Any;
-}
-
-#[derive(Debug, PartialEq)]
-pub struct NoBound {}
-impl Bound for NoBound {
-    fn matches(&self, _linenum: u64, _line_contents: &str) -> bool {
-        true
-    }
-    fn as_any(&self) -> &Any {
-        self
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -138,6 +142,9 @@ fn execute<T: BufRead>(cmd: &mut Box<SedCmd>, mut reader: T) {
     let mut hold_space = String::new();
     let mut linenum = 1;
     while reader.read_line(&mut pattern_space).unwrap() != 0 {
+        if !pattern_space.ends_with("\n") {
+            pattern_space.push('\n');
+        }
         cmd.execute(linenum, &mut hold_space, &mut pattern_space);
         print!("{}", pattern_space);
         pattern_space.clear();
@@ -194,6 +201,3 @@ fn reset_sigpipe() {
 fn reset_sigpipe() {
     // no-op
 }
-
-#[cfg(test)]
-mod tests {}
