@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Addr {
-    num_bounds: NumBounds,
+    num_bounds: u8,
     pub start: Option<Box<Bound>>,
     pub end: Option<Box<Bound>>,
     state: Rc<RefCell<AddrState>>,
@@ -13,7 +13,7 @@ pub struct Addr {
 impl Addr {
     pub fn new0() -> Addr {
         Addr {
-            num_bounds: NumBounds::Zero,
+            num_bounds: 0,
             start: None,
             end: None,
             state: Rc::new(RefCell::new(AddrState::Unborn)),
@@ -22,7 +22,7 @@ impl Addr {
 
     pub fn new1(start: Box<Bound>) -> Addr {
         Addr {
-            num_bounds: NumBounds::One,
+            num_bounds: 1,
             start: Some(start),
             end: None,
             state: Rc::new(RefCell::new(AddrState::Unborn)),
@@ -31,7 +31,7 @@ impl Addr {
 
     pub fn new2(start: Box<Bound>, end: Box<Bound>) -> Addr {
         Addr {
-            num_bounds: NumBounds::Two,
+            num_bounds: 2,
             start: Some(start),
             end: Some(end),
             state: Rc::new(RefCell::new(AddrState::Unborn)),
@@ -44,7 +44,7 @@ impl Addr {
             AddrState::Unborn => match &self.start {
                 Some(bound) => {
                     if bound.matches(linenum, &line_contents) {
-                        if self.num_bounds == NumBounds::Two {
+                        if self.num_bounds == 2 {
                             self.state.replace(AddrState::Open);
                         }
                         true
@@ -75,13 +75,6 @@ enum AddrState {
     Unborn,
     Closed,
     Open,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-enum NumBounds {
-    Zero,
-    One,
-    Two,
 }
 
 pub trait Bound {
