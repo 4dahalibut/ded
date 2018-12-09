@@ -58,83 +58,46 @@ named!(addr<&str, Addr>,
 
 #[test]
 fn parse_num_bound() {
-    let bound_box: Box<Bound> = num_bound("33 abc").unwrap().1;
-    let b: &NumBound = match bound_box.as_any().downcast_ref::<NumBound>() {
-        Some(b) => b,
-        None => panic!("&a isn't a B!"),
-    };
-    assert_eq!(b.num, 33);
+    assert!(num_bound("33 abc").unwrap().1.matches(33, "Whatever"));
+    assert!(!num_bound("33 abc").unwrap().1.matches(32, "Whatever"));
 }
 
 #[test]
 fn parse_regex_bound() {
-    let bound_box: Box<Bound> = regex_bound("\\_hi_ abc").unwrap().1;
-    let b: &RegexBound = match bound_box.as_any().downcast_ref::<RegexBound>() {
-        Some(b) => b,
-        None => panic!("&a isn't a B!"),
-    };
-    assert_eq!(
-        *b,
-        RegexBound {
-            regex: Regex::new("hi").unwrap()
-        }
-    );
+    assert!(regex_bound("\\_hi_ abc").unwrap().1.matches(9000, "hi there"));
+    assert!(!regex_bound("\\_hi_ abc").unwrap().1.matches(9000, "goodbye"));
 }
 
 #[test]
 fn parse_no_addr() {
-    let addr_to_test = addr("abc").unwrap();
-    assert_eq!(addr_to_test.0, "abc");
-    assert!(addr_to_test.1.start.is_none());
-    assert!(addr_to_test.1.end.is_none());
+    let parse_result = addr("abc").unwrap();
+    assert_eq!(parse_result.0, "abc");
+    assert!(parse_result.1.start.is_none());
+    assert!(parse_result.1.end.is_none());
 }
 
 #[test]
 fn parse_one_addr() {
-    let addr_to_test = addr("/wot/ abc").unwrap();
-    assert_eq!(addr_to_test.0, "abc");
-    assert_eq!(
-        (*addr_to_test
-            .1
-            .start
-            .unwrap()
-            .as_any()
-            .downcast_ref::<RegexBound>()
-            .unwrap())
-        .regex
-        .as_str(),
-        "wot"
-    );
-    assert!(addr_to_test.1.end.is_none());
+    let result = addr("/wot/ abc").unwrap();
+    assert_eq!(result.0, "abc");
+    let addr_to_test : Addr = result.1;
+    let start_bound = addr_to_test.start.unwrap();
+    assert!(start_bound.matches(3, "wot is this"));
+    assert!(!start_bound.matches(3, "not is this"));
+    assert!(addr_to_test.end.is_none());
 }
 
 #[test]
 fn parse_two_addr() {
-    let addr_to_test = addr("115,/end/ abc").unwrap();
-    assert_eq!(addr_to_test.0, "abc");
-    assert_eq!(
-        (*addr_to_test
-            .1
-            .start
-            .unwrap()
-            .as_any()
-            .downcast_ref::<NumBound>()
-            .unwrap())
-        .num,
-        115
-    );
-    assert_eq!(
-        (*addr_to_test
-            .1
-            .end
-            .unwrap()
-            .as_any()
-            .downcast_ref::<RegexBound>()
-            .unwrap())
-        .regex
-        .as_str(),
-        "end"
-    );
+    let parse_result = addr("33,/wot/ abc").unwrap();
+    assert_eq!(parse_result.0, "abc");
+    let addr_to_test : Addr = parse_result.1;
+    let start_bound = addr_to_test.start.unwrap();
+    let end_bound = addr_to_test.end.unwrap();
+    assert!(start_bound.matches(33, "Whatever"));
+    assert!(!start_bound.matches(32, "Whatever"));
+    assert!(end_bound.matches(3, "wot is this"));
+    assert!(!end_bound.matches(3, "not is this"));
 }
 
 named!(append_hold<&str, Box<SedCmd> >,
@@ -215,28 +178,18 @@ named!(pub toplevelparser<&str, Box<SedCmd> >,
 #[test]
 fn one_substitute_cmd() {
     let parsed = substitute(":this:that:g").unwrap();
-    let subst = parsed.1.as_any().downcast_ref::<Subst>().unwrap();
-    assert_eq!(subst.find.as_str(), "this");
-    assert_eq!(subst.replace, "that");
     assert_eq!(parsed.0, "");
+    let ref subst : SedCmd = *parsed.1;
+    let ref mut hold_space = "whatever dude".to_string();
+    let ref mut pattern_space = "this is great".to_string();
+    subst.execute(4, hold_space, pattern_space);
+    assert_eq!(pattern_space, "that is great");
+    assert_eq!(hold_space, "whatever dude");
 }
 
 #[test]
 fn compile_g() {
-    let result = toplevelparser("1G").unwrap().1;
-    let cmds = result.as_any().downcast_ref::<MoreSedCmds>();
-    let (addr, cmd) = cmds.unwrap().cmds.first().unwrap();
-    assert_eq!(
-        (*addr
-            .start
-            .as_ref()
-            .unwrap()
-            .as_any()
-            .downcast_ref::<NumBound>()
-            .unwrap())
-        .num,
-        1
-    );
+    let ref cmd = *toplevelparser("1G").unwrap().1;
     let mut pattern_space = "this".to_string();
     let mut hold_space = "that".to_string();
     cmd.execute(1, &mut hold_space, &mut pattern_space);

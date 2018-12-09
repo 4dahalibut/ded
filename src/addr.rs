@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -39,8 +38,7 @@ impl Addr {
     }
 
     pub fn matches(&self, linenum: u64, line_contents: String) -> bool {
-        let copystate = self.state.borrow().clone();
-        match copystate {
+        match self.state.borrow().clone() {
             AddrState::Unborn => match &self.start {
                 Some(bound) => {
                     if bound.matches(linenum, &line_contents) {
@@ -54,16 +52,13 @@ impl Addr {
                 }
                 None => true,
             },
-            AddrState::Open => match &self.end {
-                Some(bound) => {
+            AddrState::Open => {
+                if let Some(bound) = &self.end {
                     if bound.matches(linenum, &line_contents) {
                         self.state.replace(AddrState::Closed);
-                        true
-                    } else {
-                        true
                     }
                 }
-                None => true,
+                true
             },
             AddrState::Closed => false,
         }
@@ -79,7 +74,6 @@ enum AddrState {
 
 pub trait Bound {
     fn matches(&self, linenum: u64, line_contents: &str) -> bool;
-    fn as_any(&self) -> &Any;
 }
 
 #[derive(Debug, PartialEq)]
@@ -91,9 +85,6 @@ impl Bound for NumBound {
     fn matches(&self, linenum: u64, _line_contents: &str) -> bool {
         self.num == linenum
     }
-    fn as_any(&self) -> &Any {
-        self
-    }
 }
 
 #[derive(Debug)]
@@ -104,9 +95,6 @@ pub struct RegexBound {
 impl Bound for RegexBound {
     fn matches(&self, _linenum: u64, line_contents: &str) -> bool {
         self.regex.is_match(line_contents)
-    }
-    fn as_any(&self) -> &Any {
-        self
     }
 }
 

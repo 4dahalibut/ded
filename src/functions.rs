@@ -3,11 +3,9 @@ extern crate regex;
 
 use crate::addr::Addr;
 use regex::Regex;
-use std::any::Any;
 
 pub trait SedCmd {
     fn execute(&self, linenum: u64, hold_space: &mut String, pattern_space: &mut String);
-    fn as_any(&self) -> &Any;
 }
 
 #[derive(Debug)]
@@ -40,9 +38,6 @@ impl SedCmd for Subst {
                 .to_string();
         }
     }
-    fn as_any(&self) -> &Any {
-        self
-    }
 }
 
 pub struct Append {
@@ -53,9 +48,6 @@ impl SedCmd for Append {
     fn execute(&self, _linenum: u64, _hold_space: &mut String, pattern_space: &mut String) {
         *pattern_space += &self.text;
     }
-    fn as_any(&self) -> &Any {
-        self
-    }
 }
 
 pub struct AppendHold {}
@@ -64,9 +56,6 @@ impl SedCmd for AppendHold {
     fn execute(&self, _linenum: u64, hold_space: &mut String, pattern_space: &mut String) {
         *pattern_space += "\n";
         *pattern_space += hold_space;
-    }
-    fn as_any(&self) -> &Any {
-        self
     }
 }
 
@@ -81,8 +70,5 @@ impl SedCmd for MoreSedCmds {
                 cmd.execute(linenum, hold_space, pattern_space)
             }
         }
-    }
-    fn as_any(&self) -> &Any {
-        self
     }
 }
